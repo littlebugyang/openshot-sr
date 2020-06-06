@@ -251,7 +251,7 @@ class Export(QDialog):
                     xmldoc = xml.parse(preset_path)
                     type = xmldoc.getElementsByTagName("type")
                     presets.append(_(type[0].childNodes[0].data))
-                    
+
                 except ExpatError as e:
                     # This indicates an invalid Preset file - display an error and continue
                     log.error("Failed to parse file '%s' as a preset: %s" % (preset_path, e))
@@ -358,7 +358,9 @@ class Export(QDialog):
 
         # Determine max frame (based on clips)
         timeline_length = 0.0
+        # 获取时间线的帧数
         fps = self.timeline.info.fps.ToFloat()
+        # 获取时间线上的视频片段
         clips = self.timeline.Clips()
         for clip in clips:
             clip_last_frame = clip.Position() + clip.Duration()
@@ -573,10 +575,10 @@ class Export(QDialog):
                                     self.cboChannelLayout.setCurrentIndex(layout_index)
                                     break
                                 layout_index += 1
-                  
+
                         # Free up DOM memory
                         xmldoc.unlink()
-                                
+
                     except ExpatError as e:
                         # This indicates an invalid Preset file - display an error and continue
                         log.error("Failed to parse file '%s' as a preset: %s" % (preset_path, e))
@@ -722,6 +724,7 @@ class Export(QDialog):
         _ = get_app()._tr
 
         # Init progress bar
+        # 应该仅仅是用来展示进度条
         self.progressExportVideo.setMinimum(self.txtStartFrame.value())
         self.progressExportVideo.setMaximum(self.txtEndFrame.value())
         self.progressExportVideo.setValue(self.txtStartFrame.value())
@@ -749,6 +752,7 @@ class Export(QDialog):
         # Determine final exported file path (and replace blank paths with default ones)
         default_filename = "Untitled Project"
         default_folder = os.path.join(info.HOME_PATH)
+        # 如果要导出图片序列，就规定好导出文件的命名
         if export_type == _("Image Sequence"):
             file_name_with_ext = "%s%s" % (self.txtFileName.text().strip() or default_filename, self.txtImageFormat.text().strip())
         else:
@@ -758,11 +762,13 @@ class Export(QDialog):
             if not file_name_with_ext.endswith(file_ext):
                 file_name_with_ext = '{}.{}'.format(file_name_with_ext, file_ext)
 
+        # 确定导出文件的路径
         export_file_path = os.path.join(self.txtExportFolder.text().strip() or default_folder, file_name_with_ext)
         log.info("Export path: %s" % export_file_path)
 
         # Check if filename is valid (by creating a blank file in a temporary place)
         try:
+            # 这个函数居然仅用来检测名字是否有效。。。为了在tempfile.gettempdir()里面操作，只用到了文件名+后缀名，没有完整的路径
             open(os.path.join(tempfile.gettempdir(), file_name_with_ext), 'w')
         except OSError:
             # Invalid path detected, so use default file name instead
@@ -770,6 +776,7 @@ class Export(QDialog):
             export_file_path = os.path.join(self.txtExportFolder.text().strip() or default_folder, file_name_with_ext)
             log.info("Invalid export path detected, changing to: %s" % export_file_path)
 
+        # 我都不知道 get 了一个什么
         file = File.get(path=export_file_path)
         if file:
             ret = QMessageBox.question(self,
@@ -812,8 +819,10 @@ class Export(QDialog):
                           "channel_layout": self.cboChannelLayout.currentData(),
                           "audio_bitrate": int(self.convert_to_bytes(self.txtAudioBitrate.text()))
                           }
-
+        log.info(video_settings)
+        log.info(audio_settings)
         # Override vcodec and format for Image Sequences
+        # 专供于导出图片序列的选项，只是修改了一些 video_settings 中的东西
         if export_type == _("Image Sequence"):
             image_ext = os.path.splitext(self.txtImageFormat.text().strip())[1].replace(".", "")
             video_settings["vformat"] = image_ext
@@ -836,6 +845,7 @@ class Export(QDialog):
 
         # Rescale all keyframes (if needed)
         if self.export_fps_factor != 1.0:
+            log.info("导出文件fps因子不为1")
             # Get a copy of rescaled project data (this does not modify the active project)
             rescaled_app_data = get_app().project.rescale_keyframes(self.export_fps_factor)
 
@@ -904,6 +914,7 @@ class Export(QDialog):
             start_frame_export = video_settings.get("start_frame")
             end_frame_export = video_settings.get("end_frame")
             # Write each frame in the selected range
+            # 接下来就是导出的重要内容
             for frame in range(video_settings.get("start_frame"), video_settings.get("end_frame") + 1):
                 # Update progress bar (emit signal to main window)
                 if (frame % progressstep) == 0:

@@ -743,11 +743,23 @@ class MainWindow(QMainWindow, updates.UpdateWatcher):
         from windows.export import Export
         win = Export()
         # Run the dialog event loop - blocking interaction on this window during this time
+        # 下面这句会召唤出文件框，也就是导出视频的文件框
         result = win.exec_()
         if result == QDialog.Accepted:
             log.info('Export Video add confirmed')
         else:
             log.info('Export Video add cancelled')
+
+    def actionSuperResolution_trigger(self, event):
+        # 显示窗口
+        from windows.super_resolution import SuperResolution
+        win = SuperResolution()
+        result = win.exec_()
+        if result == QDialog.Accepted:
+            log.info('成功上传')
+        else:
+            log.info('取消上传')
+        pass
 
     def actionExportEDL_trigger(self, event):
         """Export EDL File"""
@@ -1000,15 +1012,18 @@ class MainWindow(QMainWindow, updates.UpdateWatcher):
         _ = app._tr
 
         # Prepare to use the status bar
+        # 这个 statusBar 就是应用中各轨道的界面的下方用于提示操作结果的地方
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
 
         # Determine path for saved frame - Default export path
+        # 该 recommended_path 是 openshot 该项目固定推荐的
         recommended_path = recommended_path = os.path.join(info.HOME_PATH)
         if app.project.current_filepath:
             recommended_path = os.path.dirname(app.project.current_filepath)
 
         # Determine path for saved frame - Project's export path
+        # 这可能与项目设置有关
         if app.project.get("export_path"):
             recommended_path = app.project.get("export_path")
 
@@ -1017,12 +1032,14 @@ class MainWindow(QMainWindow, updates.UpdateWatcher):
         # Ask user to confirm or update framePath
         framePath = QFileDialog.getSaveFileName(self, _("Save Frame..."), framePath, _("Image files (*.png)"))[0]
 
+        # 应该是用户取消了保存，所以 framePath 为空
         if not framePath:
             # No path specified (save frame cancelled)
             self.statusBar.showMessage(_("Save Frame cancelled..."), 5000)
             return
 
         # Append .png if needed
+        # 正常情况下，在上面 QFileDialog 的时候，设置了("Image files (*.png)")，是不会有机会进入到下面这个 if 语句块中的了
         if not framePath.endswith(".png"):
             framePath = "%s.png" % framePath
 
@@ -1030,6 +1047,7 @@ class MainWindow(QMainWindow, updates.UpdateWatcher):
         log.info("Saving frame to %s" % framePath)
 
         # Pause playback (to prevent crash since we are fixing to change the timeline's max size)
+        # 强制播放器停下来
         app.window.actionPlay_trigger(None, force="pause")
 
         # Save current cache object and create a new CacheMemory object (ignore quality and scale prefs)
@@ -1038,20 +1056,28 @@ class MainWindow(QMainWindow, updates.UpdateWatcher):
         self.timeline_sync.timeline.SetCache(new_cache_object)
 
         # Set MaxSize to full project resolution and clear preview cache so we get a full resolution frame
+        # 也就是说在导出帧之前，需要在时间线上放大图像
         self.timeline_sync.timeline.SetMaxSize(app.project.get("width"), app.project.get("height"))
         self.cache_object.Clear()
 
         # Check if file exists, if it does, get the lastModified time
         if os.path.exists(framePath):
+            log.info("文件已经存在啦: %s " % framePath)
             framePathTime = QFileInfo(framePath).lastModified()
+            log.info("已存在的文件上次被修改时间为：%s" % framePathTime)
         else:
             framePathTime = QDateTime()
+            log.info("该文件尚未存在，其创建时间可视为：%s" % framePathTime)
 
         # Get and Save the frame (return is void, so we cannot check for success/fail here - must use file modification timestamp)
+        # 这是一个获取帧的方法
         openshot.Timeline.GetFrame(self.timeline_sync.timeline, self.preview_thread.current_frame).Save(framePath, 1.0)
 
         # Show message to user
         if os.path.exists(framePath) and (QFileInfo(framePath).lastModified() > framePathTime):
+            # 这里可见 framePath 上的截图已经保存完毕，且新文件的上次被修改时间为最新
+            # TODO: 为什么要特意强调 QFileInfo(framePath).lastModified() 一定比 framePathTime 要靠后？这不是必然的吗？
+            # 下面的 showMessage 中的 5000 为：显示 message 5秒钟
             self.statusBar.showMessage(_("Saved Frame to %s" % framePath), 5000)
         else:
             self.statusBar.showMessage(_("Failed to save image to %s" % framePath), 5000)
@@ -2617,6 +2643,7 @@ class MainWindow(QMainWindow, updates.UpdateWatcher):
         self.http_server_thread.start()
 
         # Create the timeline sync object (used for previewing timeline)
+        # 这是关于时间线自身
         self.timeline_sync = TimelineSync(self)
 
         # Setup timeline

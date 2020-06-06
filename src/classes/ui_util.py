@@ -192,7 +192,8 @@ def init_element(window, elem):
 
 def connect_auto_events(window, elem, name):
     """ Connect any events in a *.ui file with matching Python method names """
-
+    """ 在这里依靠名字连接了 ui 中的信号和槽 """
+    """ 只要 window 中有对应的方法，就可以连接起来 """
     # If trigger slot available check it
     if hasattr(elem, 'trigger'):
         func_name = name + "_trigger"
